@@ -4076,6 +4076,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@wix/app-management@npm:^1.0.0":
+  version: 1.0.143
+  resolution: "@wix/app-management@npm:1.0.143"
+  dependencies:
+    "@wix/auto_sdk_app-management_app-instances": 1.0.44
+    "@wix/auto_sdk_app-management_app-permissions": 1.0.40
+    "@wix/auto_sdk_app-management_app-plans": 1.0.30
+    "@wix/auto_sdk_app-management_bi-events": 1.0.34
+    "@wix/auto_sdk_app-management_billing": 1.0.42
+    "@wix/auto_sdk_app-management_custom-charges": 1.0.29
+    "@wix/auto_sdk_app-management_embedded-scripts": 1.0.31
+    "@wix/auto_sdk_app-management_external-billing": 1.0.29
+  checksum: 02e185c2341b7d9337859022b752be5160fe126b7f750a1d84135dafec9647253ef1ba151ed5f77dbba99c53889671e1d8f02517c3988668830aa326e7ee370b
+  languageName: node
+  linkType: hard
+
 "@wix/astro@npm:^2.13.0":
   version: 2.27.0
   resolution: "@wix/astro@npm:2.27.0"
@@ -4118,6 +4134,86 @@ __metadata:
   peerDependencies:
     "@wix/sdk": ^1.21.2
   checksum: 67b9cc66b891f85675b6d595b3bcd5b950aa185ca032e78f9217c0d1d9cb118dcea4db5261ad972fa163eb985f1e4d87df4c73679b7bf298381c3519a0aedb80
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_app-instances@npm:1.0.44":
+  version: 1.0.44
+  resolution: "@wix/auto_sdk_app-management_app-instances@npm:1.0.44"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: bfba203fec3b52b6d908a46724e198d6de01a05ab8a4eb204233852bfd4860ebcd56de65dc1df3e4610e950a2ba9d9f1fa79556ef5c54886ac7f2baf41b29cd1
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_app-permissions@npm:1.0.40":
+  version: 1.0.40
+  resolution: "@wix/auto_sdk_app-management_app-permissions@npm:1.0.40"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: c19af0ffe52957a4156e48564053002afa83bc7605494d00872ada730adfe31f21078ab5c810131bc38d3382eb5eb92160512eb5c0aae430a223bc2a930c19d4
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_app-plans@npm:1.0.30":
+  version: 1.0.30
+  resolution: "@wix/auto_sdk_app-management_app-plans@npm:1.0.30"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: be5feac3b615705079240b8033f3ce51a17e99b3dc170da3327106c20beba3edc611117facdb770abead8434f751cc0f53ff6f03e19c7da0092bbfafea9cdb4e
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_bi-events@npm:1.0.34":
+  version: 1.0.34
+  resolution: "@wix/auto_sdk_app-management_bi-events@npm:1.0.34"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: 2df9896dd6b012b3687b732f5d0179cbb65bf46515fd31a0e4ead6f64650a46a91f08db7e31013dfb2d0137aee2930d4b648ab6ed33b438a13fe400a7e441a00
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_billing@npm:1.0.42":
+  version: 1.0.42
+  resolution: "@wix/auto_sdk_app-management_billing@npm:1.0.42"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: e850a25b27f7dc0be5dc54821fedb21d67243f171f49abd6c7f772d67103c4be6c43e34b00764165d709355d66d11d15df068b209f7dc54f7b0ad656feb35834
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_custom-charges@npm:1.0.29":
+  version: 1.0.29
+  resolution: "@wix/auto_sdk_app-management_custom-charges@npm:1.0.29"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: 5bc1e6e9e3b09eba1c170a9b508272a75ca23358dd0ef2defc2ec4331063caa145e7ef914792fadda45520a654e6d1d86a26b2b09a24ce3cb3ecd2fc7996a300
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_embedded-scripts@npm:1.0.31":
+  version: 1.0.31
+  resolution: "@wix/auto_sdk_app-management_embedded-scripts@npm:1.0.31"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: 68ff36bed548a402048a4bd64590025a0beb5e213feab72076239ac9081b46a0e899cb713724a59e0ed5f019dc9c31cec82e66450a7a5aa4ce270608749cb750
+  languageName: node
+  linkType: hard
+
+"@wix/auto_sdk_app-management_external-billing@npm:1.0.29":
+  version: 1.0.29
+  resolution: "@wix/auto_sdk_app-management_external-billing@npm:1.0.29"
+  dependencies:
+    "@wix/sdk-runtime": ^1.0.6
+    "@wix/sdk-types": ^1.17.3
+  checksum: 5374db6d559a11a7b14399f6bd640a87818bc09dddb1affd1ae59414be0c0f5eaca7a441b8813fe13736c946cadc337c24ce531b1bfb622f8ecb9219d7a93f7d
   languageName: node
   linkType: hard
 
@@ -13044,6 +13140,7 @@ __metadata:
     "@astrojs/react": ^4.3.0
     "@types/react": ^18.3.1
     "@types/react-dom": ^18.3.1
+    "@wix/app-management": ^1.0.0
     "@wix/astro": ^2.13.0
     "@wix/blog": ^1.0.574
     "@wix/cli": ^1.1.135
