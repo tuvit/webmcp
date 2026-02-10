@@ -1,16 +1,23 @@
 /**
- * WebMCP E-commerce Script
+ * WebMCP Site Tools Script
  *
- * Registers WebMCP tools for Wix Stores e-commerce functionality.
+ * Registers WebMCP tools for Wix site functionality including:
+ * - General site navigation and structure
+ * - E-commerce (Wix Stores)
+ * - Blog posts
+ * - Member information
+ *
  * Tools are exposed via the navigator.modelContext API for AI agents.
- *
  * WebMCP requires Chrome 146+ with chrome://flags/#model-context-api enabled.
  */
 
 import { site } from '@wix/site';
+import { site as siteSite } from '@wix/site-site';
 import { createClient } from '@wix/sdk';
 import { products } from '@wix/stores';
 import { currentCart } from '@wix/ecom';
+import { posts } from '@wix/blog';
+import { members } from '@wix/members';
 
 // App ID from wix.config.json
 const APP_ID = '116cabf2-b8ab-4168-8d5b-6e74a6283923';
@@ -139,6 +146,28 @@ function formatCart(cart: Record<string, unknown> | undefined): FormattedCart {
   };
 }
 
+// Helper function to format blog post data
+function formatBlogPost(post: Record<string, unknown>) {
+  return {
+    id: post._id,
+    title: post.title,
+    excerpt: post.excerpt,
+    content: post.plainContent || post.contentText,
+    url: post.url,
+    slug: post.slug,
+    coverImage: (post.coverMedia as Record<string, unknown> | undefined)?.image,
+    author: post.memberId,
+    publishedDate: post.firstPublishedDate,
+    lastUpdated: post.lastPublishedDate,
+    categories: post.categoryIds,
+    tags: post.tagIds,
+    featured: post.featured,
+    pinned: post.pinned,
+    commentingEnabled: post.commentingEnabled,
+    minutesToRead: post.minutesToRead,
+  };
+}
+
 // Initialize WebMCP tools
 async function initWebMCP() {
   // Check for WebMCP support
@@ -147,16 +176,18 @@ async function initWebMCP() {
     return;
   }
 
-  console.log('[WebMCP] Initializing Wix e-commerce tools...');
+  console.log('[WebMCP] Initializing Wix site tools...');
 
   // Create Wix client with site authentication
-  // Using type assertion to work around TypeScript limitations with dynamic SDK types
   const wixClient = createClient({
     auth: site.auth(),
     host: site.host({ applicationId: APP_ID }),
     modules: {
       products,
       currentCart,
+      posts,
+      members,
+      siteSite,
     },
   }) as unknown as {
     products: {
@@ -182,6 +213,25 @@ async function initWebMCP() {
       getCurrentCart: () => Promise<Record<string, unknown>>;
       estimateCurrentCartTotals: (options: Record<string, unknown>) => Promise<Record<string, unknown>>;
     };
+    posts: {
+      listPosts: (options?: { paging?: { limit?: number; offset?: number }; fieldsets?: string[] }) => Promise<{ posts: Record<string, unknown>[] }>;
+      getPost: (postId: string, options?: { fieldsets?: string[] }) => Promise<{ post: Record<string, unknown> }>;
+      queryPosts: () => {
+        limit: (n: number) => {
+          find: () => Promise<{ items: Record<string, unknown>[] }>;
+        };
+      };
+    };
+    members: {
+      getMyMember: (options?: { fieldsets?: string[] }) => Promise<{ member: Record<string, unknown> | null }>;
+    };
+    siteSite: {
+      getSiteStructure: () => Promise<{
+        pages: Array<{ name: string; type: string; url?: string; isHomePage?: boolean; applicationId?: string; prefix?: string }>;
+        prefixes: Array<{ name: string; type: string; prefix: string; applicationId?: string }>;
+        lightboxes: Array<{ name: string }>;
+      }>;
+    };
     auth: {
       getAccessTokenInjector: () => unknown;
     };
@@ -193,10 +243,254 @@ async function initWebMCP() {
 
   const modelContext = navigator.modelContext;
 
+  // ==========================================
+  // GENERAL SITE TOOLS
+  // ==========================================
+
+  // Tool: Get Site Structure (Pages)
+  modelContext.registerTool({
+    name: 'wix_get_site_structure',
+    description: 'Get the site structure including all pages, their URLs, and navigation info. Use this to understand what pages exist on the site.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      try {
+        const structure = await wixClient.siteSite.getSiteStructure();
+
+        return {
+          success: true,
+          pages: structure.pages.map(page => ({
+            name: page.name,
+            type: page.type,
+            url: page.url,
+            isHomePage: page.isHomePage || false,
+            applicationId: page.applicationId,
+          })),
+          prefixes: structure.prefixes,
+          lightboxes: structure.lightboxes,
+          totalPages: structure.pages.length,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+  });
+
+  // Tool: Get Current Page Info
+  modelContext.registerTool({
+    name: 'wix_get_current_page',
+    description: 'Get information about the current page the user is viewing, including URL, title, and main content text.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      try {
+        // Get page info from DOM since we're running client-side
+        const title = document.title;
+        const url = window.location.href;
+        const pathname = window.location.pathname;
+
+        // Try to extract main content text
+        const mainContent = document.querySelector('main') || document.querySelector('[role="main"]') || document.body;
+        const textContent = mainContent?.innerText?.slice(0, 5000) || ''; // Limit to 5000 chars
+
+        // Get meta description if available
+        const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+        // Get headings for structure
+        const headings = Array.from(document.querySelectorAll('h1, h2, h3')).slice(0, 20).map(h => ({
+          level: h.tagName.toLowerCase(),
+          text: h.textContent?.trim(),
+        }));
+
+        return {
+          success: true,
+          page: {
+            title,
+            url,
+            pathname,
+            metaDescription,
+            headings,
+            contentPreview: textContent.slice(0, 2000),
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+  });
+
+  // ==========================================
+  // BLOG TOOLS
+  // ==========================================
+
+  // Tool: Get Blog Posts
+  modelContext.registerTool({
+    name: 'wix_get_blog_posts',
+    description: 'Get a list of published blog posts. Use this to browse blog content on sites with Wix Blog installed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Maximum number of posts to return (default: 10, max: 100)',
+        },
+        offset: {
+          type: 'number',
+          description: 'Number of posts to skip for pagination (default: 0)',
+        },
+      },
+    },
+    execute: async (params) => {
+      try {
+        const limit = Math.min((params.limit as number) || 10, 100);
+        const offset = (params.offset as number) || 0;
+
+        const result = await wixClient.posts.listPosts({
+          paging: { limit, offset },
+          fieldsets: ['URL', 'CONTENT_TEXT'],
+        });
+
+        return {
+          success: true,
+          posts: result.posts.map(formatBlogPost),
+          totalCount: result.posts.length,
+          offset,
+          hasMore: result.posts.length === limit,
+        };
+      } catch (error) {
+        // Blog might not be installed
+        if (error instanceof Error && (error.message.includes('404') || error.message.includes('not found'))) {
+          return {
+            success: false,
+            error: 'Wix Blog is not installed on this site',
+          };
+        }
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+  });
+
+  // Tool: Get Single Blog Post
+  modelContext.registerTool({
+    name: 'wix_get_blog_post',
+    description: 'Get detailed information about a specific blog post by its ID. Returns full post content.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        postId: {
+          type: 'string',
+          description: 'The unique ID of the blog post to retrieve',
+        },
+      },
+      required: ['postId'],
+    },
+    execute: async (params) => {
+      try {
+        const postId = params.postId as string;
+
+        const result = await wixClient.posts.getPost(postId, {
+          fieldsets: ['URL', 'CONTENT_TEXT', 'RICH_CONTENT'],
+        });
+
+        if (!result.post) {
+          return {
+            success: false,
+            error: 'Blog post not found',
+          };
+        }
+
+        return {
+          success: true,
+          post: formatBlogPost(result.post),
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+  });
+
+  // ==========================================
+  // MEMBER TOOLS
+  // ==========================================
+
+  // Tool: Get Current Member Info
+  modelContext.registerTool({
+    name: 'wix_get_member_info',
+    description: 'Get information about the currently logged-in member. Returns null if no member is logged in.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    execute: async () => {
+      try {
+        const result = await wixClient.members.getMyMember({
+          fieldsets: ['FULL'],
+        });
+
+        if (!result.member) {
+          return {
+            success: true,
+            loggedIn: false,
+            member: null,
+          };
+        }
+
+        const member = result.member;
+        return {
+          success: true,
+          loggedIn: true,
+          member: {
+            id: member._id,
+            loginEmail: member.loginEmail,
+            status: member.status,
+            contactId: member.contactId,
+            profile: member.profile,
+            privacyStatus: member.privacyStatus,
+            activityStatus: member.activityStatus,
+            createdDate: member._createdDate,
+          },
+        };
+      } catch (error) {
+        // Not logged in or members not enabled
+        if (error instanceof Error && (error.message.includes('401') || error.message.includes('403'))) {
+          return {
+            success: true,
+            loggedIn: false,
+            member: null,
+          };
+        }
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+  });
+
+  // ==========================================
+  // E-COMMERCE TOOLS
+  // ==========================================
+
   // Tool: Search Products
   modelContext.registerTool({
     name: 'wix_search_products',
-    description: 'Search for products in the Wix store by keyword. Returns matching products with their details including name, price, description, and images.',
+    description: 'Search for products in the Wix store by keyword. Returns matching products with their details including name, price, description, and images. Requires Wix Stores.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -228,6 +522,12 @@ async function initWebMCP() {
           totalCount: result.items.length,
         };
       } catch (error) {
+        if (error instanceof Error && (error.message.includes('404') || error.message.includes('not found'))) {
+          return {
+            success: false,
+            error: 'Wix Stores is not installed on this site',
+          };
+        }
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -239,7 +539,7 @@ async function initWebMCP() {
   // Tool: Get Product by ID
   modelContext.registerTool({
     name: 'wix_get_product',
-    description: 'Get detailed information about a specific product by its ID. Returns full product details including variants, options, and inventory.',
+    description: 'Get detailed information about a specific product by its ID. Returns full product details including variants, options, and inventory. Requires Wix Stores.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -279,7 +579,7 @@ async function initWebMCP() {
   // Tool: List Products
   modelContext.registerTool({
     name: 'wix_list_products',
-    description: 'List all products in the store with pagination. Use this to browse the product catalog.',
+    description: 'List all products in the store with pagination. Use this to browse the product catalog. Requires Wix Stores.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -312,6 +612,12 @@ async function initWebMCP() {
           hasMore: result.items.length === limit,
         };
       } catch (error) {
+        if (error instanceof Error && (error.message.includes('404') || error.message.includes('not found'))) {
+          return {
+            success: false,
+            error: 'Wix Stores is not installed on this site',
+          };
+        }
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -323,7 +629,7 @@ async function initWebMCP() {
   // Tool: Add to Cart
   modelContext.registerTool({
     name: 'wix_add_to_cart',
-    description: 'Add a product to the current shopping cart. Requires product ID and quantity. Optionally specify product options for variants.',
+    description: 'Add a product to the current shopping cart. Requires product ID and quantity. Optionally specify product options for variants. Requires Wix Stores.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -387,7 +693,7 @@ async function initWebMCP() {
   // Tool: Get Cart
   modelContext.registerTool({
     name: 'wix_get_cart',
-    description: 'Get the current shopping cart contents. Shows all items, quantities, and basic pricing information.',
+    description: 'Get the current shopping cart contents. Shows all items, quantities, and basic pricing information. Requires Wix Stores.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -422,7 +728,7 @@ async function initWebMCP() {
   // Tool: Get Cart Totals
   modelContext.registerTool({
     name: 'wix_get_cart_totals',
-    description: 'Get estimated cart totals including subtotal, tax, shipping estimates, and discounts. Use this before checkout to show the customer the total cost.',
+    description: 'Get estimated cart totals including subtotal, tax, shipping estimates, and discounts. Use this before checkout to show the customer the total cost. Requires Wix Stores.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -464,8 +770,23 @@ async function initWebMCP() {
     },
   });
 
-  console.log('[WebMCP] Wix e-commerce tools registered successfully.');
-  console.log('[WebMCP] Available tools: wix_search_products, wix_get_product, wix_list_products, wix_add_to_cart, wix_get_cart, wix_get_cart_totals');
+  // Log registered tools
+  const tools = [
+    'wix_get_site_structure',
+    'wix_get_current_page',
+    'wix_get_blog_posts',
+    'wix_get_blog_post',
+    'wix_get_member_info',
+    'wix_search_products',
+    'wix_get_product',
+    'wix_list_products',
+    'wix_add_to_cart',
+    'wix_get_cart',
+    'wix_get_cart_totals',
+  ];
+
+  console.log('[WebMCP] Wix site tools registered successfully.');
+  console.log(`[WebMCP] Available tools (${tools.length}): ${tools.join(', ')}`);
 }
 
 // Initialize when the DOM is ready
