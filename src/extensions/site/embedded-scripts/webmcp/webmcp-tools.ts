@@ -25,6 +25,27 @@ const APP_ID = '116cabf2-b8ab-4168-8d5b-6e74a6283923';
 // Wix Stores App ID for catalog references
 const WIX_STORES_APP_ID = '1380b703-ce81-ff05-f115-39571d94dfcd';
 
+// Log that the script is loading
+console.log('[WebMCP] Script loading...');
+
+// Create Wix client at module scope (required for access token injection)
+const wixClient = createClient({
+  auth: site.auth(),
+  host: site.host({ applicationId: APP_ID }),
+  modules: {
+    products,
+    currentCart,
+    posts,
+    members,
+    siteSite,
+  },
+});
+
+// Export access token injector at module scope (required by Wix embedded script runtime)
+export const injectAccessTokenFunction = (wixClient as { auth: { getAccessTokenInjector: () => unknown } }).auth.getAccessTokenInjector();
+
+console.log('[WebMCP] Access token injector exported');
+
 // Type declarations for WebMCP API
 interface ModelContextTool {
   name: string;
@@ -168,78 +189,67 @@ function formatBlogPost(post: Record<string, unknown>) {
   };
 }
 
+// Typed client interface
+type TypedWixClient = {
+  products: {
+    queryProducts: () => {
+      startsWith: (field: string, value: string) => {
+        limit: (n: number) => {
+          find: () => Promise<{ items: Record<string, unknown>[] }>;
+        };
+      };
+      skip: (n: number) => {
+        limit: (n: number) => {
+          find: () => Promise<{ items: Record<string, unknown>[] }>;
+        };
+      };
+      limit: (n: number) => {
+        find: () => Promise<{ items: Record<string, unknown>[] }>;
+      };
+    };
+    getProduct: (id: string) => Promise<{ product: Record<string, unknown> | null }>;
+  };
+  currentCart: {
+    addToCurrentCart: (options: { lineItems: Array<{ catalogReference: { appId: string; catalogItemId: string; options?: { options: Record<string, string> } }; quantity: number }> }) => Promise<{ cart: Record<string, unknown> }>;
+    getCurrentCart: () => Promise<Record<string, unknown>>;
+    estimateCurrentCartTotals: (options: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  };
+  posts: {
+    listPosts: (options?: { paging?: { limit?: number; offset?: number }; fieldsets?: string[] }) => Promise<{ posts: Record<string, unknown>[] }>;
+    getPost: (postId: string, options?: { fieldsets?: string[] }) => Promise<{ post: Record<string, unknown> }>;
+    queryPosts: () => {
+      limit: (n: number) => {
+        find: () => Promise<{ items: Record<string, unknown>[] }>;
+      };
+    };
+  };
+  members: {
+    getMyMember: (options?: { fieldsets?: string[] }) => Promise<{ member: Record<string, unknown> | null }>;
+  };
+  siteSite: {
+    getSiteStructure: () => Promise<{
+      pages: Array<{ name: string; type: string; url?: string; isHomePage?: boolean; applicationId?: string; prefix?: string }>;
+      prefixes: Array<{ name: string; type: string; prefix: string; applicationId?: string }>;
+      lightboxes: Array<{ name: string }>;
+    }>;
+  };
+};
+
+// Cast client to typed version for use in functions
+const typedClient = wixClient as unknown as TypedWixClient;
+
 // Initialize WebMCP tools
 async function initWebMCP() {
+  console.log('[WebMCP] initWebMCP called, checking for modelContext API...');
+
   // Check for WebMCP support
   if (!('modelContext' in navigator) || !navigator.modelContext) {
     console.log('[WebMCP] WebMCP API not supported in this browser. Requires Chrome 146+ with experimental flags enabled.');
+    console.log('[WebMCP] Script loaded successfully, but WebMCP tools not registered (API not available).');
     return;
   }
 
-  console.log('[WebMCP] Initializing Wix site tools...');
-
-  // Create Wix client with site authentication
-  const wixClient = createClient({
-    auth: site.auth(),
-    host: site.host({ applicationId: APP_ID }),
-    modules: {
-      products,
-      currentCart,
-      posts,
-      members,
-      siteSite,
-    },
-  }) as unknown as {
-    products: {
-      queryProducts: () => {
-        startsWith: (field: string, value: string) => {
-          limit: (n: number) => {
-            find: () => Promise<{ items: Record<string, unknown>[] }>;
-          };
-        };
-        skip: (n: number) => {
-          limit: (n: number) => {
-            find: () => Promise<{ items: Record<string, unknown>[] }>;
-          };
-        };
-        limit: (n: number) => {
-          find: () => Promise<{ items: Record<string, unknown>[] }>;
-        };
-      };
-      getProduct: (id: string) => Promise<{ product: Record<string, unknown> | null }>;
-    };
-    currentCart: {
-      addToCurrentCart: (options: { lineItems: Array<{ catalogReference: { appId: string; catalogItemId: string; options?: { options: Record<string, string> } }; quantity: number }> }) => Promise<{ cart: Record<string, unknown> }>;
-      getCurrentCart: () => Promise<Record<string, unknown>>;
-      estimateCurrentCartTotals: (options: Record<string, unknown>) => Promise<Record<string, unknown>>;
-    };
-    posts: {
-      listPosts: (options?: { paging?: { limit?: number; offset?: number }; fieldsets?: string[] }) => Promise<{ posts: Record<string, unknown>[] }>;
-      getPost: (postId: string, options?: { fieldsets?: string[] }) => Promise<{ post: Record<string, unknown> }>;
-      queryPosts: () => {
-        limit: (n: number) => {
-          find: () => Promise<{ items: Record<string, unknown>[] }>;
-        };
-      };
-    };
-    members: {
-      getMyMember: (options?: { fieldsets?: string[] }) => Promise<{ member: Record<string, unknown> | null }>;
-    };
-    siteSite: {
-      getSiteStructure: () => Promise<{
-        pages: Array<{ name: string; type: string; url?: string; isHomePage?: boolean; applicationId?: string; prefix?: string }>;
-        prefixes: Array<{ name: string; type: string; prefix: string; applicationId?: string }>;
-        lightboxes: Array<{ name: string }>;
-      }>;
-    };
-    auth: {
-      getAccessTokenInjector: () => unknown;
-    };
-  };
-
-  // Export the access token injector for the embedded script runtime
-  (window as unknown as { injectAccessTokenFunction?: unknown }).injectAccessTokenFunction =
-    wixClient.auth.getAccessTokenInjector();
+  console.log('[WebMCP] WebMCP API found! Registering Wix site tools...');
 
   const modelContext = navigator.modelContext;
 
@@ -257,7 +267,7 @@ async function initWebMCP() {
     },
     execute: async () => {
       try {
-        const structure = await wixClient.siteSite.getSiteStructure();
+        const structure = await typedClient.siteSite.getSiteStructure();
 
         return {
           success: true,
@@ -355,7 +365,7 @@ async function initWebMCP() {
         const limit = Math.min((params.limit as number) || 10, 100);
         const offset = (params.offset as number) || 0;
 
-        const result = await wixClient.posts.listPosts({
+        const result = await typedClient.posts.listPosts({
           paging: { limit, offset },
           fieldsets: ['URL', 'CONTENT_TEXT'],
         });
@@ -401,7 +411,7 @@ async function initWebMCP() {
       try {
         const postId = params.postId as string;
 
-        const result = await wixClient.posts.getPost(postId, {
+        const result = await typedClient.posts.getPost(postId, {
           fieldsets: ['URL', 'CONTENT_TEXT', 'RICH_CONTENT'],
         });
 
@@ -439,7 +449,7 @@ async function initWebMCP() {
     },
     execute: async () => {
       try {
-        const result = await wixClient.members.getMyMember({
+        const result = await typedClient.members.getMyMember({
           fieldsets: ['FULL'],
         });
 
@@ -510,7 +520,7 @@ async function initWebMCP() {
         const query = params.query as string;
         const limit = Math.min((params.limit as number) || 10, 100);
 
-        const result = await wixClient.products
+        const result = await typedClient.products
           .queryProducts()
           .startsWith('name', query)
           .limit(limit)
@@ -554,7 +564,7 @@ async function initWebMCP() {
       try {
         const productId = params.productId as string;
 
-        const result = await wixClient.products.getProduct(productId);
+        const result = await typedClient.products.getProduct(productId);
 
         if (!result.product) {
           return {
@@ -598,7 +608,7 @@ async function initWebMCP() {
         const limit = Math.min((params.limit as number) || 10, 100);
         const offset = (params.offset as number) || 0;
 
-        const result = await wixClient.products
+        const result = await typedClient.products
           .queryProducts()
           .skip(offset)
           .limit(limit)
@@ -675,7 +685,7 @@ async function initWebMCP() {
           quantity,
         }];
 
-        const result = await wixClient.currentCart.addToCurrentCart({ lineItems });
+        const result = await typedClient.currentCart.addToCurrentCart({ lineItems });
 
         return {
           success: true,
@@ -700,7 +710,7 @@ async function initWebMCP() {
     },
     execute: async () => {
       try {
-        const result = await wixClient.currentCart.getCurrentCart();
+        const result = await typedClient.currentCart.getCurrentCart();
 
         return {
           success: true,
@@ -735,7 +745,7 @@ async function initWebMCP() {
     },
     execute: async () => {
       try {
-        const result = await wixClient.currentCart.estimateCurrentCartTotals({});
+        const result = await typedClient.currentCart.estimateCurrentCartTotals({});
 
         const priceSummary = result.priceSummary as Record<string, unknown> | undefined;
 
@@ -790,12 +800,13 @@ async function initWebMCP() {
 }
 
 // Initialize when the DOM is ready
+console.log('[WebMCP] Setting up initialization, document.readyState:', document.readyState);
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initWebMCP);
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('[WebMCP] DOMContentLoaded event fired');
+    initWebMCP();
+  });
 } else {
+  console.log('[WebMCP] DOM already ready, calling initWebMCP immediately');
   initWebMCP();
 }
-
-// Export for ESM module access token injection
-export const injectAccessTokenFunction =
-  (window as unknown as { injectAccessTokenFunction?: unknown }).injectAccessTokenFunction;
